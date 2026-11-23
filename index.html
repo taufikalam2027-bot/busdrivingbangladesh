@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Bus Driving Simulator Bangladesh — B.S TEAM</title>
+  <style>
+    :root {
+      --bs-green: #006a4e;
+      --bs-red: #dc2626;
+      --bs-gold: #f59e0b;
+      --glass: rgba(10, 15, 22, 0.84);
+      --border: rgba(255, 255, 255, 0.18);
+      --hud-scale: 1;
+    }
+    * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+      background: #060a0f; font-family: 'Segoe UI', Roboto, Arial, sans-serif; color: #f8fafc;
+    }
+    #game-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+    /* Splash Boot */
+    #splash-screen {
+      position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: radial-gradient(circle at center, #0f291e 0%, #05080d 75%);
+      transition: opacity 0.6s ease;
+    }
+    .bs-logo {
+      width: 100px; height: 100px; border-radius: 24px;
+      background: linear-gradient(135deg, var(--bs-green), #022c22);
+      border: 3px solid var(--bs-gold); display: grid; place-items: center;
+      font-size: 36px; font-weight: 900; letter-spacing: 2px;
+      box-shadow: 0 0 42px rgba(245, 158, 11, 0.38);
+    }
+    .bs-title { margin-top: 12px; font-size: 28px; font-weight: 900; letter-spacing: 5px; }
+    .bs-sub { font-size: 12px; letter-spacing: 2px; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
+    .boot-wrap { width: min(360px, 82vw); margin-top: 30px; text-align: center; }
+    .boot-track { height: 10px; border-radius: 99px; background: rgba(255,255,255,0.12); overflow: hidden; border: 1px solid var(--border); }
+    .boot-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444); transition: width 0.25s ease; }
+    #boot-status { font-size: 12px; color: #cbd5e1; margin-top: 8px; }
+
+    /* Garage Menu */
+    #garage-menu {
+      position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column;
+      justify-content: space-between; padding: 16px; pointer-events: none;
+    }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; pointer-events: auto; }
+    .brand-card {
+      background: var(--glass); backdrop-filter: blur(10px); border: 1px solid var(--border);
+      border-radius: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 12px;
+    }
+    .brand-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: linear-gradient(135deg, #b91c1c, #f59e0b); border: 2px solid #fff;
+      display: grid; place-items: center; font-weight: 900; font-size: 11px; text-align: center; line-height: 1.05;
+    }
+    .brand-card h1 { margin: 0; font-size: 15px; font-weight: 800; }
+    .brand-card span { font-size: 11px; color: var(--bs-gold); font-weight: 600; }
+    .wallet-bar {
+      background: var(--glass); backdrop-filter: blur(10px); border: 1px solid var(--border);
+      border-radius: 14px; padding: 10px 14px; display: flex; gap: 14px; font-size: 12px; font-weight: 700; align-items: center;
+    }
+    .garage-grid {
+      display: grid; grid-template-columns: 310px 1fr 290px; gap: 12px; align-items: end;
+    }
+    .panel {
+      background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--border);
+      border-radius: 16px; padding: 13px; pointer-events: auto;
+    }
+    .panel h3 { margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--bs-gold); }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 8px; }
+    .btn {
+      border: 1px solid var(--border); background: rgba(255,255,255,0.08); color: #fff;
+      padding: 9px 10px; border-radius: 9px; font-size: 11px; font-weight: 700; cursor: pointer; text-align: center;
+    }
+    .btn:hover { background: rgba(255,255,255,0.18); }
+    .btn.active { background: var(--bs-green); border-color: #34d399; }
+    .btn.primary { background: linear-gradient(135deg, #059669, #047857); border-color: #34d399; font-size: 13px; padding: 11px; }
+    select, input[type="file"] {
+      width: 100%; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px; font-size: 11px; margin-bottom: 7px;
+    }
+    .hint { font-size: 11px; color: #94a3b8; line-height: 1.35; }
+
+    /* BUSSID-Style Driving HUD */
+    #driving-hud {
+      position: fixed; inset: 0; z-index: 40; display: none; flex-direction: column;
+      justify-content: space-between; padding: 10px 14px; pointer-events: none;
+    }
+    .hud-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .hud-cluster-left { display: flex; flex-direction: column; gap: 6px; pointer-events: auto; }
+    .gps-box {
+      background: var(--glass); border: 1px solid var(--border); border-radius: 12px;
+      padding: 8px 12px; min-width: 225px;
+    }
+    .gps-title { font-size: 12px; font-weight: 800; color: var(--bs-gold); }
+    .gps-sub { font-size: 11px; color: #cbd5e1; margin-top: 2px; }
+    .top-toolbar {
+      display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; pointer-events: auto;
+      background: var(--glass); padding: 6px; border-radius: 12px; border: 1px solid var(--border);
+    }
+    .tool-btn {
+      background: rgba(255,255,255,0.09); border: 1px solid var(--border); color: #fff;
+      padding: 6px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .tool-btn.on { background: var(--bs-green); border-color: #34d399; }
+    .tool-btn.warn { background: rgba(245, 158, 11, 0.35); border-color: var(--bs-gold); }
+    .tool-btn.danger { background: rgba(220, 38, 38, 0.45); border-color: #f87171; }
+
+    /* Camera Zoom 100x Bar (Visible in Free Orbit Cam) */
+    #zoom-bar {
+      position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 42;
+      background: var(--glass); border: 1px solid var(--border); border-radius: 12px;
+      padding: 8px; display: none; flex-direction: column; align-items: center; gap: 6px; pointer-events: auto;
+    }
+    #zoom-bar input[type="range"] { writing-mode: vertical-lr; direction: rtl; height: 120px; }
+
+    /* Tour Mode Side Panel */
+    #tour-panel {
+      position: fixed; right: 14px; top: 76px; width: 270px; z-index: 44;
+      background: rgba(10, 18, 28, 0.94); border: 1.5px solid var(--bs-gold);
+      border-radius: 14px; padding: 11px; display: none; pointer-events: auto;
+    }
+    #tour-panel h4 { margin: 0 0 4px 0; color: var(--bs-gold); font-size: 13px; }
+    #tour-panel p { margin: 0 0 8px 0; font-size: 11px; color: #e2e8f0; }
+
+    /* Bottom BUSSID Controls */
+    .hud-bottom {
+      display: flex; justify-content: space-between; align-items: flex-end; gap: 10px;
+      transform: scale(var(--hud-scale)); transform-origin: bottom center;
+    }
+    .left-controls { display: flex; flex-direction: column; gap: 8px; pointer-events: auto; align-items: flex-start; }
+    .indicator-strip { display: flex; gap: 6px; }
+    .sig-btn {
+      width: 44px; height: 34px; border-radius: 8px; background: var(--glass); border: 1px solid var(--border);
+      color: #fff; font-weight: 900; font-size: 13px; cursor: pointer;
+    }
+    .sig-btn.blinking { background: #d97706; border-color: #fde047; color: #000; }
+
+    /* Virtual Steering Wheel */
+    #wheel-container {
+      width: 136px; height: 136px; border-radius: 50%; background: rgba(15, 23, 42, 0.65);
+      border: 6px solid #334155; position: relative; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 6px 22px rgba(0,0,0,0.6); touch-action: none; cursor: grab;
+    }
+    .wheel-spoke-h { width: 100%; height: 14px; background: #1e293b; position: absolute; }
+    .wheel-spoke-v { width: 14px; height: 50%; background: #1e293b; position: absolute; bottom: 0; }
+    .wheel-hub {
+      width: 38px; height: 38px; border-radius: 50%; background: var(--bs-green);
+      border: 2px solid var(--bs-gold); z-index: 2; display: grid; place-items: center; font-size: 9px; font-weight: 900;
+    }
+    #arrow-steer-box { display: none; gap: 8px; }
+    .arrow-pad {
+      width: 64px; height: 64px; border-radius: 14px; background: var(--glass);
+      border: 1.5px solid var(--border); color: #fff; font-size: 22px; font-weight: 900; cursor: pointer;
+    }
+
+    /* Center Digital Speedo & Gear Bar */
+    .center-dash {
+      background: var(--glass); border: 1px solid var(--border); border-radius: 16px;
+      padding: 8px 16px; text-align: center; min-width: 210px; pointer-events: auto;
+    }
+    .speed-big { font-size: 32px; font-weight: 900; line-height: 1; }
+    .rpm-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.12); border-radius: 4px; margin: 5px 0; overflow: hidden; }
+    .rpm-bar-fill { width: 20%; height: 100%; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); }
+    .gear-row { display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: var(--bs-gold); }
+
+    /* Right Pedals + Horn + Gear Shift */
+    .right-controls { display: flex; gap: 8px; align-items: flex-end; pointer-events: auto; }
+    .side-gear-stack { display: flex; flex-direction: column; gap: 6px; }
+    .horn-btn {
+      width: 56px; height: 56px; border-radius: 50%; background: #dc2626;
+      border: 2px solid #fca5a5; color: #fff; font-size: 11px; font-weight: 900; cursor: pointer;
+    }
+    .pedal {
+      width: 60px; height: 82px; border-radius: 12px; background: var(--glass);
+      border: 1.5px solid var(--border); color: #fff; font-size: 11px; font-weight: 800;
+      display: grid; place-items: center; cursor: pointer;
+    }
+    .pedal.gas { height: 104px; border-color: #34d399; }
+    .pedal.brake { border-color: #f87171; }
+
+    /* Modals */
+    .modal-bg {
+      position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.78);
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-card {
+      background: #0f172a; border: 1px solid var(--border); border-radius: 18px;
+      padding: 18px; max-width: 640px; width: 100%; max-height: 86vh; overflow-y: auto;
+    }
+    .setting-row {
+      display: flex; justify-content: space-between; align-items: center; padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 13px; gap: 10px;
+    }
+    .district-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 7px; margin-top: 10px; }
+    .d-item { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; padding: 7px; font-size: 11px; cursor: pointer; }
+    .d-item:hover { border-color: var(--bs-gold); }
+
+    @media (max-width: 900px) {
+      .garage-grid { grid-template-columns: 1fr; }
+      .hide-sm { display: none; }
+      #wheel-container { width: 110px; height: 110px; }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 1. B.S TEAM Splash Screen -->
+  <div id="splash-screen">
+    <div class="bs-logo">B.S</div>
+    <div class="bs-title">B.S TEAM</div>
+    <div class="bs-sub">Bus Driving Simulator Bangladesh</div>
+    <div class="boot-wrap">
+      <div class="boot-track"><div class="boot-fill" id="boot-bar"></div></div>
+      <div id="boot-status">Initializing 3D WebGL Engine...</div>
+    </div>
+  </div>
+
+  <!-- 2. 3D Dhaka Garage & Menu -->
+  <div id="garage-menu">
+    <div class="top-bar">
+      <div class="brand-card">
+        <div class="brand-icon">KHAJA<br/>HANIF</div>
+        <div>
+          <h1>Bus Driving Simulator Bangladesh</h1>
+          <span>B.S TEAM • RHD 22,736.58 km Network • 64 Districts</span>
+        </div>
+      </div>
+      <div class="wallet-bar">
+        <span>💰 BDT <b id="wallet-val">150,000</b></span>
+        <span>🛡️ Health <b id="garage-health">100%</b></span>
+        <button class="tool-btn" id="open-settings-garage">⚙ Settings</button>
+      </div>
+    </div>
+
+    <div class="garage-grid">
+      <div class="panel">
+        <h3>Bangladeshi Coach Livery (Hino AK 1J)</h3>
+        <div class="btn-row">
+          <button class="btn active" id="skin-khaja">Khaja Travels (4D)</button>
+          <button class="btn" id="skin-hanif">Hanif Enterprise</button>
+          <button class="btn" id="skin-shohag">Shohag Paribahan</button>
+          <button class="btn" id="skin-greenline">Green Line</button>
+        </div>
+        <label class="hint">Upload Extracted PNG Skin (e.g. Hino 1J Aftab / Al Hamra):</label>
+        <input type="file" id="upload-skin" accept="image/png,image/jpeg" />
+        <label class="hint">Upload Custom Horn Audio (.mp3 / .wav):</label>
+        <input type="file" id="upload-horn" accept="audio/*" />
+      </div>
+
+      <div class="panel">
+        <h3>Game Mode & Highway Corridor</h3>
+        <div class="btn-row">
+          <button class="btn active" data-mode="Career">Career Mode</button>
+          <button class="btn" data-mode="Free">Free Mode</button>
+          <button class="btn" data-mode="Tour">Tour Mode</button>
+          <button class="btn" data-mode="Convoy">Multiplayer Convoy</button>
+        </div>
+        <select id="corridor-select">
+          <option value="meherpur_dhaka">Meherpur (Mujibnagar) → Kushtia → Sirajganj Hotel → Savar → Dhaka</option>
+          <option value="khulna_sundarbans">Khulna → Bagerhat → Satkhira (Sundarbans)</option>
+          <option value="ctg_coxs">Chattogram → Marine Drive → Himchori → Inani → Cox's Bazar</option>
+          <option value="sylhet_tour">Sylhet → Tea Gardens → Ratargul → Hakaluki Haor → Jaflong</option>
+        </select>
+        <div class="btn-row" style="margin-bottom:0;">
+          <button class="btn" id="open-64-btn">64 Districts Map</button>
+          <button class="btn primary" id="drive-now-btn">DRIVE NOW ▶</button>
+        </div>
+      </div>
+
+      <div class="panel hide-sm">
+        <h3>Environment & Quick Guide</h3>
+        <div class="btn-row">
+          <button class="btn active" id="env-day">Sunny Day</button>
+          <button class="btn" id="env-night">Highway Night</button>
+        </div>
+        <div class="hint">
+          • <b>Cameras (C):</b> Chase, Cockpit Interior (with Toy Bus & Hands), Free Orbit (100x Zoom), Hood, Rear Showcase.<br/>
+          • <b>BUSSID Tools:</b> Steering Wheel / Buttons / Tilt, Indicators, Hazard, High/Low Beam, Wipers, Crane Rescue, Driver Walk.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. BUSSID-Style Driving HUD -->
+  <div id="driving-hud">
+    <div class="hud-top">
+      <div class="hud-cluster-left">
+        <div class="gps-box">
+          <div class="gps-title" id="gps-title">Meherpur → Dhaka Highway</div>
+          <div class="gps-sub" id="gps-sub">0.0 km • Health 100% • Cam: Chase</div>
+        </div>
+      </div>
+
+      <div class="top-toolbar">
+        <button class="tool-btn" id="btn-cam">📷 Cam (C)</button>
+        <button class="tool-btn" id="btn-lights">💡 Lights: Off</button>
+        <button class="tool-btn" id="btn-underglow">✨ Glow</button>
+        <button class="tool-btn" id="btn-wipers">🌧️ Wiper</button>
+        <button class="tool-btn" id="btn-door">🚪 Door (D)</button>
+        <button class="tool-btn" id="btn-driver">🚶 Driver (E)</button>
+        <button class="tool-btn warn" id="btn-crane">🏗️ Crane</button>
+        <button class="tool-btn" id="btn-settings-hud">⚙ Settings</button>
+        <button class="tool-btn danger" id="btn-garage">🏠 Garage</button>
+      </div>
+    </div>
+
+    <!-- 100x Zoom Slider (Orbit Mode) -->
+    <div id="zoom-bar">
+      <span style="font-size:10px;font-weight:800;color:var(--bs-gold);">ZOOM</span>
+      <input type="range" id="zoom-slider" min="4" max="100" value="14" />
+      <span id="zoom-val" style="font-size:10px;">14m</span>
+    </div>
+
+    <!-- Tour Mode Side Card -->
+    <div id="tour-panel">
+      <h4 id="tour-title">Viral Spot Nearby!</h4>
+      <p id="tour-desc">Explore this Bangladeshi landmark on foot.</p>
+      <div class="btn-row" style="margin:0;">
+        <button class="btn primary" id="tour-lock">Set GPS</button>
+        <button class="btn" id="tour-hide">Close</button>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="left-controls">
+        <div class="indicator-strip">
+          <button class="sig-btn" id="sig-left">◀</button>
+          <button class="sig-btn" id="sig-hazard">⚠</button>
+          <button class="sig-btn" id="sig-right">▶</button>
+        </div>
+        <div id="wheel-container" title="Drag to Steer">
+          <div class="wheel-spoke-h"></div>
+          <div class="wheel-spoke-v"></div>
+          <div class="wheel-hub">HINO</div>
+        </div>
+        <div id="arrow-steer-box">
+          <button class="arrow-pad" id="arr-left">◀</button>
+          <button class="arrow-pad" id="arr-right">▶</button>
+        </div>
+      </div>
+
+      <div class="center-dash">
+        <div class="speed-big" id="hud-speed">0</div>
+        <div style="font-size:10px;color:#94a3b8;letter-spacing:1.5px;">KM/H</div>
+        <div class="rpm-bar-bg"><div class="rpm-bar-fill" id="rpm-fill"></div></div>
+        <div class="gear-row">
+          <button class="tool-btn" id="gear-down" style="padding:2px 7px;">-</button>
+          <span id="hud-gear-rpm">AUTO • G1 • 750 RPM</span>
+          <button class="tool-btn" id="gear-up" style="padding:2px 7px;">+</button>
+        </div>
+      </div>
+
+      <div class="right-controls">
+        <button class="horn-btn" id="pad-horn">HORN</button>
+        <button class="pedal brake" id="pad-brake">BRAKE</button>
+        <button class="pedal gas" id="pad-gas">GAS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Settings Modal (BUSSID-Style Controls, Graphics, Traffic, Damage) -->
+  <div class="modal-bg" id="modal-settings">
+    <div class="modal-card" style="max-width:460px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h2 style="margin:0;color:var(--bs-gold);font-size:18px;">Game Settings</h2>
+        <button class="btn" id="close-settings">Done ✕</button>
+      </div>
+      <div class="setting-row">
+        <span>Steering Type</span>
+        <select id="set-steer-mode" style="width:160px;margin:0;">
+          <option value="wheel">Steering Wheel</option>
+          <option value="buttons">Left/Right Buttons</option>
+          <option value="tilt">Mobile Tilt (Gyro)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>Steering Sensitivity (<b id="sens-val">65%</b>)</span>
+        <input type="range" id="set-sens" min="25" max="100" value="65" style="width:160px;" />
+      </div>
+      <div class="setting-row">
+        <span>Transmission</span>
+        <select id="set-gearbox" style="width:160px;margin:0;">
+          <option value="auto">Automatic</option>
+          <option value="manual">Manual (6-Speed)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>Graphics Preset</span>
+        <select id="set-gfx" style="width:160px;margin:0;">
+          <option value="ultra">Ultra (Shadows + Reflections)</option>
+          <option value="enhanced">Enhanced (Balanced 60 FPS)</option>
+          <option value="standard">Standard (High Battery)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>Traffic Density</span>
+        <select id="set-traffic" style="width:160px;margin:0;">
+          <option value="high">High (Bangladeshi Highway)</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>Collision Damage</span>
+        <select id="set-damage" style="width:160px;margin:0;">
+          <option value="on">Realistic Damage</option>
+          <option value="off">No Damage Mode</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>HUD Button Scale (<b id="scale-val">100%</b>)</span>
+        <input type="range" id="set-hud-scale" min="75" max="125" value="100" style="width:160px;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. 64 Districts Modal -->
+  <div class="modal-bg" id="modal-64">
+    <div class="modal-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;color:var(--bs-gold);font-size:18px;">Bangladesh 64-District Atlas (RHD 22,736.58 km)</h2>
+        <button class="btn" id="close-64">Close ✕</button>
+      </div>
+      <p class="hint">Click any district to spawn directly near its famous landmark:</p>
+      <div class="district-grid" id="district-grid"></div>
+    </div>
+  </div>
+
+  <!-- 6. Sirajganj Hotel Stop / Crane / Ad Modal -->
+  <div class="modal-bg" id="modal-rest">
+    <div class="modal-card" style="max-width:420px;text-align:center;">
+      <h2 id="rest-title" style="margin-top:0;color:var(--bs-gold);">Sirajganj Food Village Stop</h2>
+      <p id="rest-body" class="hint" style="font-size:13px;color:#e2e8f0;">
+        Mandatory highway hotel break completed. Transition ad slot active only while parked.
+      </p>
+      <div style="background:#1e293b;border:1px dashed var(--bs-gold);border-radius:12px;padding:16px;margin:12px 0;">
+        <div style="font-size:10px;color:#94a3b8;">SPONSORED TRANSITION SLOT (NON-INTRUSIVE)</div>
+        <div style="font-size:15px;font-weight:800;margin-top:5px;">B.S TEAM — Bangladesh Coach Pack</div>
+      </div>
+      <button class="btn primary" id="rest-done" style="width:100%;">Continue Journey (+1,500 BDT)</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // =========================================================================
+    // 1. ALL 64 DISTRICTS OF BANGLADESH
+    // =========================================================================
+    const DISTRICTS_64 = [
+      { n:"Dhaka", d:"Dhaka", s:"Jatiya Smriti Soudho (Savar), Lalbagh Fort, Ahsan Manzil", z:-480 },
+      { n:"Gazipur", d:"Dhaka", s:"Bhawal National Park, Safari Park, Nuhash Palli", z:-450 },
+      { n:"Tangail", d:"Dhaka", s:"Jamuna Multi-Purpose Bridge, Madhupur Park", z:-380 },
+      { n:"Kishoreganj", d:"Dhaka", s:"Sholakia Eidgah, Jangalbari Fort", z:-420 },
+      { n:"Manikganj", d:"Dhaka", s:"Baliati Zamindar Bari, Teota Navaratna Math", z:-440 },
+      { n:"Munshiganj", d:"Dhaka", s:"Idrakpur Fort, Baba Adam Mosque", z:-500 },
+      { n:"Narayanganj", d:"Dhaka", s:"Panam City (Sonargaon), Sonakanda Fort", z:-510 },
+      { n:"Narsingdi", d:"Dhaka", s:"Wari-Bateshwar Ancient Site, Dream Holiday Park", z:-460 },
+      { n:"Gopalganj", d:"Dhaka", s:"Tungipara Memorial Complex, Barni Baor", z:-300 },
+      { n:"Faridpur", d:"Dhaka", s:"Kobi Jasimuddin House, Mathurapur Deoul", z:-330 },
+      { n:"Madaripur", d:"Dhaka", s:"Shakuni Lake, Shah Madar Shrine", z:-350 },
+      { n:"Rajbari", d:"Dhaka", s:"Goalanda Ferry Ghat, Mir Mosharraf Academy", z:-280 },
+      { n:"Shariatpur", d:"Dhaka", s:"Sureshwar Darbar Sharif, Kartikpur Rajbari", z:-360 },
+      { n:"Meherpur", d:"Khulna", s:"Mujibnagar Memorial & Amrokanon (23 Pillars)", z:0 },
+      { n:"Kushtia", d:"Khulna", s:"Lalon Shah Mazar, Shilaidaha Kuthibari, Hardinge Bridge", z:-140 },
+      { n:"Khulna", d:"Khulna", s:"Sundarbans Launch Ghat, Shahid Hadis Park", z:-160 },
+      { n:"Satkhira", d:"Khulna", s:"Sundarbans Shyamnagar & Mandarbaria Beach", z:-175 },
+      { n:"Bagerhat", d:"Khulna", s:"Sixty Dome Mosque, Mongla Port", z:-165 },
+      { n:"Chuadanga", d:"Khulna", s:"Karpasdanga Neelkuthi, Bara Mosque", z:-40 },
+      { n:"Jessore", d:"Khulna", s:"Benapole Land Port, Sagardari, Godkhali", z:-90 },
+      { n:"Jhenaidah", d:"Khulna", s:"Naldanga Temple Complex, Dhol Samudra", z:-70 },
+      { n:"Magura", d:"Khulna", s:"Raja Sitaram Roy Rajbari", z:-110 },
+      { n:"Narail", d:"Khulna", s:"Chitra River Otter-Fishing Villages", z:-145 },
+      { n:"Sirajganj", d:"Rajshahi", s:"Sirajganj Food Village Highway Hotel, Jamuna Approach", z:-260 },
+      { n:"Rajshahi", d:"Rajshahi", s:"Varendra Heritage Gateway, Padma Riverbank", z:-200 },
+      { n:"Bogra", d:"Rajshahi", s:"Mahasthangarh, Gokul Medh, Kherua Mosque", z:-270 },
+      { n:"Joypurhat", d:"Rajshahi", s:"Hinda-Koshba Mosque, Lokma Rajbari", z:-290 },
+      { n:"Naogaon", d:"Rajshahi", s:"Paharpur Buddhist Vihara, Kusumba Mosque", z:-250 },
+      { n:"Natore", d:"Rajshahi", s:"Pagla Raja Palace, Halti Beel", z:-220 },
+      { n:"Chapai Nawabganj", d:"Rajshahi", s:"Chhota Sona Mosque, Tohakhana", z:-230 },
+      { n:"Pabna", d:"Rajshahi", s:"Jor Bangla Temple, Hardinge Bridge Paksey", z:-180 },
+      { n:"Chittagong", d:"Chittagong", s:"Patenga Sea Beach, Foy's Lake, WWII Cemetery", z:-560 },
+      { n:"Cox's Bazar", d:"Chittagong", s:"Marine Drive, Inani, Himchori, St. Martin's Island", z:-640 },
+      { n:"Bandarban", d:"Chittagong", s:"Golden Temple, Nilgiri, Chimbuk, Boga Lake", z:-610 },
+      { n:"Rangamati", d:"Chittagong", s:"Kaptai Lake, Hanging Bridge, Sajek Valley", z:-590 },
+      { n:"Khagrachhari", d:"Chittagong", s:"Alutila Cave, Risang Waterfall", z:-575 },
+      { n:"Comilla", d:"Chittagong", s:"Shalban Buddhist Vihara, Mainamati", z:-525 },
+      { n:"Brahmanbaria", d:"Chittagong", s:"Hatir Pool, Anderson Memorial", z:-495 },
+      { n:"Chandpur", d:"Chittagong", s:"Chandpur River Port, Angikar Monument", z:-520 },
+      { n:"Feni", d:"Chittagong", s:"Bijoy Singh Dighi, Muhuri Barrage", z:-540 },
+      { n:"Noakhali", d:"Chittagong", s:"Gandhi Ashram, Bajra Mosque, Nijhum Dweep", z:-535 },
+      { n:"Lakshmipur", d:"Chittagong", s:"Dalal Bazar Zamindar Bari, Khoa Sagar Dighi", z:-530 },
+      { n:"Sylhet", d:"Sylhet", s:"Ratargul Swamp Forest, Jaflong, Shah Jalal Shrine", z:-700 },
+      { n:"Moulvibazar", d:"Sylhet", s:"Hakaluki Haor, Srimangal Tea Gardens, Madhabkunda", z:-680 },
+      { n:"Habiganj", d:"Sylhet", s:"Satchari National Park, Putijuri Mosque", z:-660 },
+      { n:"Sunamganj", d:"Sylhet", s:"Haor Wetlands, Selbarash Mosque", z:-710 },
+      { n:"Rangpur", d:"Rangpur", s:"Tajhat Palace, Vinnojagat, Chiklee Park", z:-320 },
+      { n:"Dinajpur", d:"Rangpur", s:"Kantajew Temple, Ramsagar, Shopnopuri", z:-340 },
+      { n:"Kurigram", d:"Rangpur", s:"Dharla Bridge, Bhitarbandh Zamindar Bari", z:-350 },
+      { n:"Gaibandha", d:"Rangpur", s:"Palace of Raja Birat, Naldanga Bari", z:-305 },
+      { n:"Lalmonirhat", d:"Rangpur", s:"Tin Bigha Corridor, Teesta Barrage", z:-355 },
+      { n:"Nilphamari", d:"Rangpur", s:"Nilsagar Dighi, Chini Mosque Saidpur", z:-345 },
+      { n:"Panchagarh", d:"Rangpur", s:"Banglabandha Zero Point, Bhitargarh", z:-365 },
+      { n:"Thakurgaon", d:"Rangpur", s:"Baliadangi Giant Mango Tree, Haripur Rajbari", z:-360 },
+      { n:"Barisal", d:"Barisal", s:"Oxford Church, Sharkal Fort", z:-390 },
+      { n:"Patuakhali", d:"Barisal", s:"Kuakata Sea Beach, Buddhist Temple", z:-410 },
+      { n:"Bhola", d:"Barisal", s:"Char Kukri-Mukri, Monpura Island", z:-400 },
+      { n:"Barguna", d:"Barisal", s:"Bibichini Shahi Mosque, Sonarchar", z:-405 },
+      { n:"Jhalokati", d:"Barisal", s:"Rajapur Saturia Palace", z:-395 },
+      { n:"Pirojpur", d:"Barisal", s:"Momin Mosque, Two-Domed Mosque", z:-385 },
+      { n:"Mymensingh", d:"Mymensingh", s:"Shashi Lodge, Brahmaputra, BAU", z:-470 },
+      { n:"Sherpur", d:"Mymensingh", s:"Gajni Leisure Centre, Madhutila Eco-Park", z:-485 },
+      { n:"Jamalpur", d:"Mymensingh", s:"Lauchapra Picnic Spot, Gandhi Ashram", z:-465 },
+      { n:"Netrokona", d:"Mymensingh", s:"Birishiri China Matir Pahar, Someswari River", z:-490 }
+    ];
+
+    const dGrid = document.getElementById('district-grid');
+    DISTRICTS_64.forEach((item, i) => {
+      const card = document.createElement('div');
+      card.className = 'd-item';
+      card.innerHTML = `<b>${i + 1}. ${item.n}</b> <span style="color:#f59e0b">(${item.d})</span><br/><span style="color:#cbd5e1">${item.s}</span>`;
+      card.onclick = () => {
+        state.busZ = item.z;
+        state.busX = 2.8;
+        state.speed = 0;
+        document.getElementById('modal-64').style.display = 'none';
+        enterDriving();
+      };
+      dGrid.appendChild(card);
+    });
+
+    // =========================================================================
+    // 2. PROCEDURAL TEXTURES (KHAJA HINO 1J LIVERY, ASPHALT, GRASS, BANGLA SIGNS)
+    // =========================================================================
+    const PRESETS = {
+      khaja: { title: "KHAJA", sub: "ঢাকা - রংপুর - মেহেরপুর", bg: "#f8fafc", s1: "#dc2626", s2: "#f59e0b", s3: "#111827", text: "#b91c1c" },
+      hanif: { title: "HANIF", sub: "HANIF ENTERPRISE • NON-AC/AC", bg: "#ffffff", s1: "#e11d48", s2: "#fb923c", s3: "#1e293b", text: "#be123c" },
+      shohag: { title: "SHOHAG", sub: "SHOHAG PARIBAHAN • SCANIA", bg: "#064e3b", s1: "#f59e0b", s2: "#ffffff", s3: "#022c22", text: "#fef08a" },
+      greenline: { title: "GREEN LINE", sub: "DOUBLE DECKER • BANGLADESH", bg: "#0f172a", s1: "#10b981", s2: "#38bdf8", s3: "#1e293b", text: "#6ee7b7" }
+    };
+
+    function makeCoachTexture(key) {
+      const p = PRESETS[key];
+      const cvs = document.createElement('canvas');
+      cvs.width = 1024; cvs.height = 512;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = p.bg;
+      ctx.fillRect(0, 0, 1024, 512);
+
+      // Dynamic curved swoosh ribbons matching Image 2 (Khaja / Hino 1J Aftab)
+      ctx.fillStyle = p.s2;
+      ctx.beginPath();
+      ctx.moveTo(0, 390);
+      ctx.bezierCurveTo(320, 220, 680, 440, 1024, 240);
+      ctx.lineTo(1024, 305);
+      ctx.bezierCurveTo(680, 480, 320, 290, 0, 430);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = p.s1;
+      ctx.beginPath();
+      ctx.moveTo(0, 345);
+      ctx.bezierCurveTo(360, 175, 650, 390, 1024, 185);
+      ctx.lineTo(1024, 245);
+      ctx.bezierCurveTo(650, 430, 360, 235, 0, 390);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = p.s3;
+      ctx.fillRect(0, 452, 1024, 60);
+
+      ctx.fillStyle = p.text;
+      ctx.font = '900 72px Arial';
+      ctx.fillText(p.title, 72, 230);
+
+      ctx.fillStyle = '#facc15';
+      ctx.font = '700 22px Arial';
+      ctx.fillText(p.sub, 74, 488);
+
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function makeRearDecalTexture(titleText, subText) {
+      const cvs = document.createElement('canvas');
+      cvs.width = 512; cvs.height = 256;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, 512, 256);
+      // Decorative gold-blue mosaic pattern like Khaja rear glass
+      for (let i = 0; i < 60; i++) {
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(245,158,11,0.28)' : 'rgba(56,189,248,0.24)';
+        ctx.fillRect((i * 47) % 500, ((i * 29) % 230), 26, 26);
+      }
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, 502, 246);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 66px Georgia';
+      ctx.textAlign = 'center';
+      ctx.fillText(titleText, 256, 130);
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText(subText, 256, 182);
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function makeAsphaltTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 512; cvs.height = 512;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = '#25282e';
+      ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 4500; i++) {
+        const g = 30 + Math.floor(Math.random() * 28);
+        ctx.fillStyle = `rgb(${g},${g},${g + 2})`;
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+      }
+      // Road shoulder earthen edge + crisp white lines
+      ctx.fillStyle = '#5c4033';
+      ctx.fillRect(0, 0, 26, 512);
+      ctx.fillRect(486, 0, 26, 512);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(32, 0, 10, 512);
+      ctx.fillRect(470, 0, 10, 512);
+      // Center dashed yellow highway line
+      ctx.fillStyle = '#facc15';
+      for (let y = 0; y < 512; y += 128) {
+        ctx.fillRect(250, y + 16, 12, 76);
+      }
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1, 95);
+      tex.anisotropy = 8;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function makeGrassTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 256; cvs.height = 256;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = '#3f6212';
+      ctx.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 3000; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? '#4d7c0f' : '#365314';
+        ctx.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
+      }
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(70, 110);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function makeBanglaSign(bn, en, color = '#065f46') {
+      const cvs = document.createElement('canvas');
+      cvs.width = 512; cvs.height = 160;
+      const ctx = cvs.getContext('2d');
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 512, 160);
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(8, 8, 496, 144);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(bn, 256, 78);
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 21px Arial';
+      ctx.fillText(en, 256, 122);
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    // =========================================================================
+    // 3. THREE.JS SCENE, SKY DOME & PBR LIGHTING
+    // =========================================================================
+    const canvas = document.getElementById('game-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x7dd3fc);
+    scene.fog = new THREE.FogExp2(0x93c5fd, 0.0022);
+
+    const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.15, 700);
+
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x3f6212, 0.9);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.2);
+    sunLight.position.set(40, 75, 35);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.near = 5;
+    sunLight.shadow.camera.far = 220;
+    const shD = 68;
+    sunLight.shadow.camera.left = -shD; sunLight.shadow.camera.right = shD;
+    sunLight.shadow.camera.top = shD; sunLight.shadow.camera.bottom = -shD;
+    scene.add(sunLight);
+    scene.add(sunLight.target);
+
+    // =========================================================================
+    // 4. REALISTIC HINO AK 1J AFTAB-BODY COACH (Image 2 Style) + COCKPIT
+    // =========================================================================
+    const busGroup = new THREE.Group();
+    scene.add(busGroup);
+
+    const coachPaintMat = new THREE.MeshStandardMaterial({
+      map: makeCoachTexture('khaja'), roughness: 0.26, metalness: 0.3
+    });
+
+    // Smooth bevelled extruded coach shell
+    const profile = new THREE.Shape();
+    profile.moveTo(-5.8, 0.55);
+    profile.lineTo(5.3, 0.55);
+    profile.quadraticCurveTo(6.1, 0.6, 6.2, 1.5);
+    profile.lineTo(5.95, 3.3);
+    profile.quadraticCurveTo(5.8, 3.7, 5.1, 3.7);
+    profile.lineTo(-5.3, 3.7);
+    profile.quadraticCurveTo(-5.9, 3.7, -5.9, 3.0);
+    profile.lineTo(-5.8, 0.55);
+
+    const bodyGeo = new THREE.ExtrudeGeometry(profile, {
+      steps: 1, depth: 2.52, bevelEnabled: true, bevelThickness: 0.14, bevelSize: 0.12, bevelSegments: 6
+    });
+    bodyGeo.center();
+    bodyGeo.rotateY(Math.PI / 2);
+    const coachMesh = new THREE.Mesh(bodyGeo, coachPaintMat);
+    coachMesh.position.y = 2.08;
+    coachMesh.castShadow = true; coachMesh.receiveShadow = true;
+    busGroup.add(coachMesh);
+
+    // Roof AC Pod & Spoiler
+    const acPod = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.34, 3.6), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 }));
+    acPod.position.set(0, 3.92, -0.3);
+    acPod.castShadow = true;
+    busGroup.add(acPod);
+
+    // Front Windshield + Blue Decorative Sun-Curtain ("KHAJA")
+    const winGlassMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0f172a, roughness: 0.08, metalness: 0.15, transparent: true, opacity: 0.72
+    });
+    const frontGlass = new THREE.Mesh(new THREE.PlaneGeometry(2.38, 1.48), winGlassMat);
+    frontGlass.position.set(0, 2.52, -6.12);
+    frontGlass.rotation.y = Math.PI;
+    frontGlass.rotation.x = 0.12;
+    busGroup.add(frontGlass);
+
+    const frontBanner = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.34, 0.34),
+      new THREE.MeshBasicMaterial({ map: makeRearDecalTexture('KHAJA', 'DHAKA - MEHERPUR') })
+    );
+    frontBanner.position.set(0, 3.12, -6.05);
+    frontBanner.rotation.y = Math.PI;
+    busGroup.add(frontBanner);
+
+    // Rear Decorative Glass Decal (matching Image 2!)
+    const rearDecalMat = new THREE.MeshBasicMaterial({ map: makeRearDecalTexture('KHAJA', 'ঢাকা - রংপুর - মেহেরপুর') });
+    const rearGlass = new THREE.Mesh(new THREE.PlaneGeometry(2.15, 0.95), rearDecalMat);
+    rearGlass.position.set(0, 2.95, 6.08);
+    busGroup.add(rearGlass);
+
+    // Rear Swoosh & 5-Pod Vertical LED Tail Lights (Image 2 details)
+    const tailRedMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x991b1b, emissiveIntensity: 0.7 });
+    const amberMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0x000000 });
+    const rearLeftSignals = [], rearRightSignals = [];
+    for (let s of [-1, 1]) {
+      for (let row = 0; row < 4; row++) {
+        const pod = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.06), row === 1 ? amberMat.clone() : tailRedMat);
+        pod.position.set(s * 1.05, 0.98 + row * 0.16, 6.07);
+        busGroup.add(pod);
+        if (row === 1) {
+          if (s < 0) rearLeftSignals.push(pod.material);
+          else rearRightSignals.push(pod.material);
+        }
+      }
+      // Side Mirrors on curved arms
+      const mirrorArm = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.05, 0.05), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+      mirrorArm.position.set(s * 1.48, 2.95, -6.12);
+      const mirrorBox = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.42, 0.16), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 }));
+      mirrorBox.position.set(s * 1.62, 2.76, -6.22);
+      busGroup.add(mirrorArm, mirrorBox);
+    }
+
+    // Side Windows
+    const sideWinL = new THREE.Mesh(new THREE.PlaneGeometry(9.7, 1.15), winGlassMat);
+    sideWinL.position.set(-1.39, 2.65, -0.1); sideWinL.rotation.y = -Math.PI / 2;
+    const sideWinR = new THREE.Mesh(new THREE.PlaneGeometry(9.7, 1.15), winGlassMat);
+    sideWinR.position.set(1.39, 2.65, -0.1); sideWinR.rotation.y = Math.PI / 2;
+    busGroup.add(sideWinL, sideWinR);
+
+    // Animated Wipers
+    const wiperL = new THREE.Group(); wiperL.position.set(-0.55, 1.82, -6.14);
+    const bladeL = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.72, 0.03), new THREE.MeshStandardMaterial({ color: 0x09090b }));
+    bladeL.position.y = 0.35; wiperL.add(bladeL);
+    const wiperR = wiperL.clone(); wiperR.position.x = 0.55;
+    busGroup.add(wiperL, wiperR);
+
+    // Animated Pneumatic Door
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(-1.38, 1.6, -4.6);
+    const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.1, 0.95), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+    doorMesh.position.z = 0.48;
+    doorPivot.add(doorMesh);
+    busGroup.add(doorPivot);
+
+    // Headlights & Underglow (BUSSID v4.7.1)
+    const spotL = new THREE.SpotLight(0xfffbeb, 0, 85, Math.PI / 4.8, 0.45, 1.1);
+    spotL.position.set(-0.9, 1.05, -6.15); spotL.target.position.set(-0.9, 0.15, -35);
+    const spotR = new THREE.SpotLight(0xfffbeb, 0, 85, Math.PI / 4.8, 0.45, 1.1);
+    spotR.position.set(0.9, 1.05, -6.15); spotR.target.position.set(0.9, 0.15, -35);
+    const underglowLight = new THREE.PointLight(0x06b6d4, 0, 9);
+    underglowLight.position.set(0, 0.35, 0);
+    busGroup.add(spotL, spotL.target, spotR, spotR.target, underglowLight);
+
+    // Wheels (Dual Rear Tires like Image 2)
+    const tireMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.85 });
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.85, roughness: 0.2 });
+    const wheels = [];
+    [[-1.24, 0.54, -3.7, 0.34], [1.24, 0.54, -3.7, 0.34], [-1.18, 0.54, 3.4, 0.56], [1.18, 0.54, 3.4, 0.56]].forEach(wp => {
+      const wg = new THREE.Group();
+      const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, wp[3], 24), tireMat);
+      tire.rotation.z = Math.PI / 2;
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, wp[3] + 0.02, 16), rimMat);
+      rim.rotation.z = Math.PI / 2;
+      wg.add(tire, rim);
+      wg.position.set(wp[0], wp[1], wp[2]);
+      busGroup.add(wg);
+      wheels.push(wg);
+    });
+
+    // Cockpit Dashboard, Steering Wheel, Toy Bus & Human Driver
+    const dashBoard = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.45, 0.65), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 }));
+    dashBoard.position.set(0, 1.78, -5.65);
+    busGroup.add(dashBoard);
+
+    // Dashboard Toy Bus (from your Dashboard Toy Bus Codename mod!)
+    const toyBus = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 0.1), new THREE.MeshStandardMaterial({ color: 0xdc2626 }));
+    toyBus.position.set(0, 2.06, -5.62);
+    busGroup.add(toyBus);
+
+    const steerWheel = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.032, 10, 24), tireMat);
+    steerWheel.position.set(0.62, 2.02, -5.28);
+    steerWheel.rotation.x = Math.PI / 3;
+    busGroup.add(steerWheel);
+
+    function createHumanAvatar() {
+      const g = new THREE.Group();
+      const skin = new THREE.MeshStandardMaterial({ color: 0xd99b72, roughness: 0.65 });
+      const shirt = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.7 });
+      const pants = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.4, 8, 12), shirt); torso.position.y = 1.15;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), skin); head.position.y = 1.62;
+      const legL = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.55, 6, 10), pants); legL.position.set(-0.1, 0.45, 0);
+      const legR = legL.clone(); legR.position.x = 0.1;
+      const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.4, 6, 10), shirt); armL.position.set(-0.23, 1.15, 0);
+      const armR = armL.clone(); armR.position.x = 0.23;
+      g.add(torso, head, legL, legR, armL, armR);
+      g.traverse(m => { if (m.isMesh) m.castShadow = true; });
+      return g;
+    }
+    const cockpitDriver = createHumanAvatar();
+    cockpitDriver.position.set(0.62, 0.92, -4.85);
+    busGroup.add(cockpitDriver);
+
+    const walkDriver = createHumanAvatar();
+    walkDriver.visible = false;
+    scene.add(walkDriver);
+
+    // =========================================================================
+    // 5. BANGLADESHI HIGHWAY, LUSH TREES (Image 2), BAZARS & LANDMARKS
+    // =========================================================================
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(1000, 1500),
+      new THREE.MeshStandardMaterial({ map: makeGrassTexture(), roughness: 0.95 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, 0, -380);
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const highway = new THREE.Mesh(
+      new THREE.PlaneGeometry(14.5, 1100),
+      new THREE.MeshStandardMaterial({ map: makeAsphaltTexture(), roughness: 0.85 })
+    );
+    highway.rotation.x = -Math.PI / 2;
+    highway.position.set(0, 0.025, -380);
+    highway.receiveShadow = true;
+    scene.add(highway);
+
+    // Lush 3D Roadside Trees + Utility Poles + Paddy Fields (Instanced for 60 FPS)
+    const dummy = new THREE.Object3D();
+    const trunkInst = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.18, 0.28, 3.6, 8),
+      new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 }),
+      260
+    );
+    const canopyInst = new THREE.InstancedMesh(
+      new THREE.DodecahedronGeometry(2.3, 1),
+      new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 }),
+      260
+    );
+    const poleInst = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.08, 0.1, 7.5, 6),
+      new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.5 }),
+      140
+    );
+    trunkInst.castShadow = true; canopyInst.castShadow = true;
+
+    let tIdx = 0, pIdx = 0;
+    for (let z = 40; z > -760; z -= 6.5) {
+      for (let side of [-1, 1]) {
+        if (tIdx < 260) {
+          const tx = side * (11.5 + Math.random() * 14);
+          const sc = 0.85 + Math.random() * 0.7;
+          dummy.position.set(tx, 1.8 * sc, z + (Math.random() - 0.5) * 3);
+          dummy.scale.setScalar(sc);
+          dummy.updateMatrix();
+          trunkInst.setMatrixAt(tIdx, dummy.matrix);
+
+          dummy.position.y = 4.2 * sc;
+          dummy.rotation.y = Math.random() * 3;
+          dummy.updateMatrix();
+          canopyInst.setMatrixAt(tIdx, dummy.matrix);
+          tIdx++;
+        }
+        if (side === -1 && pIdx < 140 && Math.abs(z % 13) < 7) {
+          dummy.position.set(-8.6, 3.75, z);
+          dummy.scale.setScalar(1);
+          dummy.rotation.set(0, 0, 0);
+          dummy.updateMatrix();
+          poleInst.setMatrixAt(pIdx++, dummy.matrix);
+        }
+      }
+    }
+    scene.add(trunkInst, canopyInst, poleInst);
+
+    // Non-Cubic Bangladeshi Bazars & Blocked Side Alleys (Oli-Goli)
+    function addBazar(zPos, side, bn, en) {
+      const grp = new THREE.Group();
+      const xB = side * 12.6;
+      const wallM = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.8 });
+      const tinM = new THREE.MeshStandardMaterial({ color: 0x0f766e, metalness: 0.4, roughness: 0.45 });
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.4, 7.4), wallM); back.position.set(xB + side * 2.4, 1.7, zPos);
+      const w1 = new THREE.Mesh(new THREE.BoxGeometry(4.8, 3.4, 0.3), wallM); w1.position.set(xB, 1.7, zPos - 3.6);
+      const w2 = w1.clone(); w2.position.z = zPos + 3.6;
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.16, 8.2), tinM);
+      roof.position.set(xB - side * 0.3, 3.65, zPos); roof.rotation.z = side * 0.16;
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.0, 5.2), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+      counter.position.set(xB - side * 0.4, 0.5, zPos);
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.25, 5.4), new THREE.MeshBasicMaterial({ map: makeBanglaSign(bn, en) }));
+      sign.position.set(xB - side * 2.5, 4.15, zPos);
+      // Blocked side alley (Oli-Goli)
+      const alley = new THREE.Mesh(new THREE.PlaneGeometry(24, 4.2), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+      alley.rotation.x = -Math.PI / 2; alley.position.set(xB + side * 10, 0.015, zPos + 6.5);
+      const bollard = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.35, 1.1, 10), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
+      bollard.position.set(xB - side * 3.5, 0.55, zPos + 6.5);
+      grp.add(back, w1, w2, roof, counter, sign, alley, bollard);
+      grp.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      scene.add(grp);
+    }
+    addBazar(-35, 1, "মায়ের দোয়া টি স্টোর", "LOCAL BAZAR");
+    addBazar(-125, -1, "ভাই ভাই হোটেল", "HIGHWAY RESTAURANT");
+    addBazar(-260, 1, "সিরাজগঞ্জ ফুড ভিলেজ", "MANDATORY HOTEL STOP");
+    addBazar(-430, -1, "সাভার পরিবহন কাউন্টার", "TICKET COUNTER");
+
+    // Landmarks: Mujibnagar Memorial (z=-10), Hardinge Bridge (z=-155), Savar Smriti Soudho (z=-475)
+    (function buildLandmarks() {
+      const concrete = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.7 });
+      const mujib = new THREE.Group(); mujib.position.set(-22, 0, -10);
+      const stage = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.5, 4.3), new THREE.MeshStandardMaterial({ color: 0x991b1b }));
+      stage.position.y = 0.25; mujib.add(stage);
+      for (let i = 0; i < 23; i++) {
+        const a = -1.2 + (i / 22) * 2.4; const h = 3.0 + (i / 22) * 4.8;
+        const p = new THREE.Mesh(new THREE.ConeGeometry(0.65, h, 3), concrete);
+        p.position.set(Math.sin(a) * 11, h / 2, Math.cos(a) * 11 - 4); p.castShadow = true; mujib.add(p);
+      }
+      scene.add(mujib);
+
+      const river = new THREE.Mesh(new THREE.PlaneGeometry(150, 32), new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.15 }));
+      river.rotation.x = -Math.PI / 2; river.position.set(0, 0.01, -155); scene.add(river);
+      const steel = new THREE.MeshStandardMaterial({ color: 0x991b1b, metalness: 0.65, roughness: 0.35 });
+      for (let s of [-7, 7]) {
+        const arch = new THREE.Mesh(new THREE.TorusGeometry(13, 0.45, 8, 24, Math.PI), steel);
+        arch.position.set(s, 0, -155); arch.rotation.y = Math.PI / 2; scene.add(arch);
+      }
+
+      const savar = new THREE.Group(); savar.position.set(24, 0, -475);
+      for (let i = 0; i < 7; i++) {
+        const h = 8 + i * 2.8; const w = 11 - i * 1.1;
+        const sp = new THREE.Mesh(new THREE.ConeGeometry(w * 0.45, h, 3), concrete);
+        sp.position.set(0, h / 2, (i - 3) * 1.4); sp.scale.set(0.35, 1, 1.3); sp.castShadow = true; savar.add(sp);
+      }
+      scene.add(savar);
+    })();
+
+    // =========================================================================
+    // 6. MULTI-PART 3D BANGLADESHI AI TRAFFIC (CNG, Trucks, Local Buses)
+    // =========================================================================
+    const aiPool = [];
+    function createTrafficVehicle(kind) {
+      const g = new THREE.Group();
+      if (kind === 'cng') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.35, 2.5), new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.45 }));
+        body.position.y = 0.85;
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.25, 2.4), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+        roof.position.y = 1.62;
+        g.add(body, roof);
+      } else if (kind === 'truck') {
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 2.1), new THREE.MeshStandardMaterial({ color: 0xeab308 }));
+        cab.position.set(0, 1.4, -2.3);
+        const bed = new THREE.Mesh(new THREE.BoxGeometry(2.3, 2.4, 5.2), new THREE.MeshStandardMaterial({ color: 0xb91c1c }));
+        bed.position.set(0, 1.55, 1.4);
+        g.add(cab, bed);
+      } else {
+        const coach = new THREE.Mesh(new THREE.BoxGeometry(2.45, 2.9, 9.6), new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35 }));
+        coach.position.y = 1.85;
+        g.add(coach);
+      }
+      g.traverse(m => { if (m.isMesh) m.castShadow = true; });
+      return g;
+    }
+
+    const trafficDefs = [
+      { kind: 'cng', lane: -3.5, speed: 13 },
+      { kind: 'truck', lane: 3.6, speed: -17 },
+      { kind: 'bus', lane: -3.6, speed: 21 },
+      { kind: 'truck', lane: -3.6, speed: 15 },
+      { kind: 'cng', lane: 3.5, speed: -12 },
+      { kind: 'bus', lane: 3.6, speed: -20 }
+    ];
+    for (let i = 0; i < 18; i++) {
+      const d = trafficDefs[i % trafficDefs.length];
+      const mesh = createTrafficVehicle(d.kind);
+      mesh.position.set(d.lane, 0, -25 - i * 38);
+      scene.add(mesh);
+      aiPool.push({ mesh, speed: d.speed, lane: d.lane });
+    }
+
+    // =========================================================================
+    // 7. WEB AUDIO ENGINE & HORN SYNTHESIS
+    // =========================================================================
+    let audioCtx = null, engineOsc = null, engineGain = null, hornOsc1 = null, hornOsc2 = null, hornGain = null, customHornBuf = null;
+    function initAudio() {
+      if (audioCtx) return;
+      const AC = window.AudioContext |
+
+| window.webkitAudioContext;
+      audioCtx = new AC();
+      engineOsc = audioCtx.createOscillator(); engineOsc.type = 'sawtooth'; engineOsc.frequency.value = 46;
+      const lpf = audioCtx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 230;
+      engineGain = audioCtx.createGain(); engineGain.gain.value = 0;
+      engineOsc.connect(lpf); lpf.connect(engineGain); engineGain.connect(audioCtx.destination);
+      engineOsc.start();
+      hornGain = audioCtx.createGain(); hornGain.gain.value = 0; hornGain.connect(audioCtx.destination);
+    }
+    function setHorn(on) {
+      initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (on) {
+        if (customHornBuf) {
+          const s = audioCtx.createBufferSource(); s.buffer = customHornBuf; s.connect(audioCtx.destination); s.start(); return;
+        }
+        if (!hornOsc1) {
+          hornOsc1 = audioCtx.createOscillator(); hornOsc2 = audioCtx.createOscillator();
+          hornOsc1.type = 'sawtooth'; hornOsc2.type = 'sawtooth';
+          hornOsc1.frequency.value = 349.23; hornOsc2.frequency.value = 440;
+          hornOsc1.connect(hornGain); hornOsc2.connect(hornGain);
+          hornOsc1.start(); hornOsc2.start();
+        }
+        hornGain.gain.setTargetAtTime(0.18, audioCtx.currentTime, 0.02);
+      } else if (hornGain) {
+        hornGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.04);
+      }
+    }
+
+    // =========================================================================
+    // 8. GAME STATE, BUSSID CAMERAS (5 ANGLES + 100x ZOOM), SETTINGS & CONTROLS
+    // =========================================================================
+    const CAM_NAMES = ["Exterior Chase", "Cabin Cockpit", "Free Orbit (100x Zoom)", "Hood Cam", "Rear Showcase"];
+    const state = {
+      screen: 'splash', mode: 'Career',
+      busX: 2.8, busZ: 0, heading: 0, speed: 0, rpm: 750, gear: 1, manualGear: 1,
+      steer: 0, wheelAngleDeg: 0, gas: false, brake: false,
+      camIdx: 0, orbitYaw: 0.45, orbitPitch: 0.25, orbitDist: 14,
+      lightLevel: 0, underglow: false, wipersOn: false, doorOpen: false, driverOut: false,
+      sigLeft: false, sigRight: false, hazard: false, health: 100,
+      steerMode: 'wheel', sensitivity: 0.65, gearbox: 'auto', trafficCount: 18, damageOn: true,
+      sirajganjDone: false, tourShown: false, keys: {}
+    };
+
+    // Splash sequence
+    setTimeout(() => { document.getElementById('boot-bar').style.width = '45%'; document.getElementById('boot-status').textContent = 'Loading 64 Districts & Hino AK 1J Models...'; }, 400);
+    setTimeout(() => { document.getElementById('boot-bar').style.width = '90%'; document.getElementById('boot-status').textContent = 'Preparing RHD Highway Traffic...'; }, 950);
+    setTimeout(() => {
+      document.getElementById('boot-bar').style.width = '100%';
+      document.getElementById('splash-screen').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('splash-screen').style.display = 'none';
+        document.getElementById('garage-menu').style.display = 'flex';
+        state.screen = 'garage';
+      }, 550);
+    }, 1500);
+
+    // Livery Presets & Custom Uploads
+    ['khaja', 'hanif', 'shohag', 'greenline'].forEach(k => {
+      document.getElementById('skin-' + k).onclick = e => {
+        document.querySelectorAll('#skin-khaja,#skin-hanif,#skin-shohag,#skin-greenline').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        coachPaintMat.map = makeCoachTexture(k); coachPaintMat.needsUpdate = true;
+        rearDecalMat.map = makeRearDecalTexture(PRESETS[k].title, PRESETS[k].sub); rearDecalMat.needsUpdate = true;
+      };
+    });
+    document.getElementById('upload-skin').onchange = e => {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          const t = new THREE.Texture(img); t.needsUpdate = true; t.colorSpace = THREE.SRGBColorSpace;
+          coachPaintMat.map = t; coachPaintMat.needsUpdate = true;
+        };
+        img.src = ev.target.result;
+      };
+      r.readAsDataURL(f);
+    };
+    document.getElementById('upload-horn').onchange = async e => {
+      const f = e.target.files[0]; if (!f) return;
+      initAudio(); customHornBuf = await audioCtx.decodeAudioData(await f.arrayBuffer());
+    };
+
+    // Modes & Weather
+    document.querySelectorAll('[data-mode]').forEach(b => {
+      b.onclick = () => {
+        document.querySelectorAll('[data-mode]').forEach(x => x.classList.remove('active'));
+        b.classList.add('active'); state.mode = b.dataset.mode;
+      };
+    });
+    document.getElementById('env-day').onclick = () => {
+      scene.background.setHex(0x7dd3fc); scene.fog.color.setHex(0x93c5fd);
+      sunLight.intensity = 2.2; hemiLight.intensity = 0.9;
+      document.getElementById('env-day').classList.add('active'); document.getElementById('env-night').classList.remove('active');
+    };
+    document.getElementById('env-night').onclick = () => {
+      scene.background.setHex(0x060b14); scene.fog.color.setHex(0x060b14);
+      sunLight.intensity = 0.25; hemiLight.intensity = 0.25;
+      state.lightLevel = 2; applyLightsUI();
+      document.getElementById('env-night').classList.add('active'); document.getElementById('env-day').classList.remove('active');
+    };
+
+    function enterDriving() {
+      initAudio();
+      if (engineGain) engineGain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+      state.screen = 'driving';
+      document.getElementById('garage-menu').style.display = 'none';
+      document.getElementById('driving-hud').style.display = 'flex';
+      const c = document.getElementById('corridor-select').value;
+      if (c === 'khulna_sundarbans') state.busZ = -155;
+      else if (c === 'ctg_coxs') state.busZ = -555;
+      else if (c === 'sylhet_tour') state.busZ = -655;
+    }
+    document.getElementById('drive-now-btn').onclick = enterDriving;
+    document.getElementById('btn-garage').onclick = () => {
+      state.screen = 'garage'; state.speed = 0;
+      if (engineGain) engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+      document.getElementById('driving-hud').style.display = 'none';
+      document.getElementById('zoom-bar').style.display = 'none';
+      document.getElementById('garage-menu').style.display = 'flex';
+    };
+
+    // Modals & Settings
+    document.getElementById('open-64-btn').onclick = () => document.getElementById('modal-64').style.display = 'flex';
+    document.getElementById('close-64').onclick = () => document.getElementById('modal-64').style.display = 'none';
+    const openSet = () => document.getElementById('modal-settings').style.display = 'flex';
+    document.getElementById('open-settings-garage').onclick = openSet;
+    document.getElementById('btn-settings-hud').onclick = openSet;
+    document.getElementById('close-settings').onclick = () => document.getElementById('modal-settings').style.display = 'none';
+
+    document.getElementById('set-steer-mode').onchange = e => {
+      state.steerMode = e.target.value;
+      document.getElementById('wheel-container').style.display = state.steerMode === 'wheel' ? 'flex' : 'none';
+      document.getElementById('arrow-steer-box').style.display = state.steerMode === 'buttons' ? 'flex' : 'none';
+    };
+    document.getElementById('set-sens').oninput = e => {
+      state.sensitivity = e.target.value / 100;
+      document.getElementById('sens-val').textContent = e.target.value + '%';
+    };
+    document.getElementById('set-gearbox').onchange = e => { state.gearbox = e.target.value; };
+    document.getElementById('set-gfx').onchange = e => {
+      const v = e.target.value;
+      renderer.shadowMap.enabled = v !== 'standard';
+      renderer.setPixelRatio(v === 'ultra' ? Math.min(window.devicePixelRatio, 2) : 1);
+    };
+    document.getElementById('set-traffic').onchange = e => {
+      state.trafficCount = e.target.value === 'high' ? 18 : (e.target.value === 'medium' ? 10 : 4);
+      aiPool.forEach((v, idx) => { v.mesh.visible = idx < state.trafficCount; });
+    };
+    document.getElementById('set-damage').onchange = e => { state.damageOn = e.target.value === 'on'; };
+    document.getElementById('set-hud-scale').oninput = e => {
+      document.documentElement.style.setProperty('--hud-scale', e.target.value / 100);
+      document.getElementById('scale-val').textContent = e.target.value + '%';
+    };
+
+    // Toolbar Actions
+    document.getElementById('btn-cam').onclick = () => {
+      state.camIdx = (state.camIdx + 1) % CAM_NAMES.length;
+      document.getElementById('zoom-bar').style.display = state.camIdx === 2 ? 'flex' : 'none';
+    };
+    document.getElementById('zoom-slider').oninput = e => {
+      state.orbitDist = Number(e.target.value);
+      document.getElementById('zoom-val').textContent = e.target.value + 'm';
+    };
+    function applyLightsUI() {
+      const labels = ['Off', 'Low', 'High'];
+      spotL.intensity = state.lightLevel === 0 ? 0 : (state.lightLevel === 1 ? 14 : 28);
+      spotR.intensity = spotL.intensity;
+      const b = document.getElementById('btn-lights');
+      b.textContent = '💡 Lights: ' + labels[state.lightLevel];
+      b.classList.toggle('on', state.lightLevel > 0);
+    }
+    document.getElementById('btn-lights').onclick = () => { state.lightLevel = (state.lightLevel + 1) % 3; applyLightsUI(); };
+    document.getElementById('btn-underglow').onclick = e => {
+      state.underglow = !state.underglow;
+      underglowLight.intensity = state.underglow ? 5 : 0;
+      e.target.classList.toggle('on', state.underglow);
+    };
+    document.getElementById('btn-wipers').onclick = e => { state.wipersOn = !state.wipersOn; e.target.classList.toggle('on', state.wipersOn); };
+    document.getElementById('btn-door').onclick = e => { state.doorOpen = !state.doorOpen; e.target.classList.toggle('on', state.doorOpen); };
+    document.getElementById('btn-driver').onclick = e => {
+      if (Math.abs(state.speed) > 2) return;
+      state.driverOut = !state.driverOut;
+      walkDriver.visible = state.driverOut;
+      cockpitDriver.visible = !state.driverOut;
+      state.doorOpen = state.driverOut;
+      if (state.driverOut) walkDriver.position.set(state.busX - 2.6, 0, state.busZ - 4.2);
+      e.target.classList.toggle('on', state.driverOut);
+    };
+    document.getElementById('btn-crane').onclick = () => {
+      state.busX = 2.8; state.heading = 0; state.speed = 0; state.health = 100;
+      document.getElementById('garage-health').textContent = '100%';
+    };
+
+    // Signals
+    document.getElementById('sig-left').onclick = () => { state.sigLeft = !state.sigLeft; state.sigRight = false; };
+    document.getElementById('sig-right').onclick = () => { state.sigRight = !state.sigRight; state.sigLeft = false; };
+    document.getElementById('sig-hazard').onclick = () => { state.hazard = !state.hazard; };
+
+    // Virtual Steering Wheel Drag + Free Orbit Canvas Drag
+    const wheelEl = document.getElementById('wheel-container');
+    let wheelDrag = false, wheelStartX = 0;
+    wheelEl.addEventListener('pointerdown', e => { wheelDrag = true; wheelStartX = e.clientX; wheelEl.setPointerCapture(e.pointerId); });
+    wheelEl.addEventListener('pointermove', e => {
+      if (!wheelDrag) return;
+      const dx = (e.clientX - wheelStartX) * 1.8 * state.sensitivity;
+      state.wheelAngleDeg = THREE.MathUtils.clamp(dx, -135, 135);
+      wheelEl.style.transform = `rotate(${state.wheelAngleDeg}deg)`;
+    });
+    const resetWheel = () => { wheelDrag = false; state.wheelAngleDeg = 0; wheelEl.style.transform = 'rotate(0deg)'; };
+    wheelEl.addEventListener('pointerup', resetWheel);
+    wheelEl.addEventListener('pointercancel', resetWheel);
+
+    let orbitDrag = false, prevPtrX = 0, prevPtrY = 0;
+    canvas.addEventListener('pointerdown', e => { if (state.camIdx === 2) { orbitDrag = true; prevPtrX = e.clientX; prevPtrY = e.clientY; } });
+    window.addEventListener('pointermove', e => {
+      if (!orbitDrag |
+
+| state.camIdx !== 2) return;
+      state.orbitYaw -= (e.clientX - prevPtrX) * 0.008;
+      state.orbitPitch = THREE.MathUtils.clamp(state.orbitPitch + (e.clientY - prevPtrY) * 0.005, 0.05, 1.1);
+      prevPtrX = e.clientX; prevPtrY = e.clientY;
+    });
+    window.addEventListener('pointerup', () => { orbitDrag = false; });
+    canvas.addEventListener('wheel', e => {
+      if (state.camIdx !== 2) return;
+      state.orbitDist = THREE.MathUtils.clamp(state.orbitDist + e.deltaY * 0.02, 4, 100);
+      document.getElementById('zoom-slider').value = Math.round(state.orbitDist);
+      document.getElementById('zoom-val').textContent = Math.round(state.orbitDist) + 'm';
+    });
+
+    // Touch Pedals & Arrows
+    function holdBtn(id, downFn, upFn) {
+      const el = document.getElementById(id);
+      el.addEventListener('pointerdown', e => { e.preventDefault(); downFn(); });
+      el.addEventListener('pointerup', upFn);
+      el.addEventListener('pointerleave', upFn);
+    }
+    holdBtn('pad-gas', () => state.gas = true, () => state.gas = false);
+    holdBtn('pad-brake', () => state.brake = true, () => state.brake = false);
+    holdBtn('arr-left', () => state.keys['TouchL'] = true, () => state.keys['TouchL'] = false);
+    holdBtn('arr-right', () => state.keys['TouchR'] = true, () => state.keys['TouchR'] = false);
+    holdBtn('pad-horn', () => setHorn(true), () => setHorn(false));
+
+    document.getElementById('gear-up').onclick = () => { state.manualGear = Math.min(6, state.manualGear + 1); };
+    document.getElementById('gear-down').onclick = () => { state.manualGear = Math.max(-1, state.manualGear - 1); };
+    document.getElementById('rest-done').onclick = () => {
+      document.getElementById('modal-rest').style.display = 'none';
+      const w = document.getElementById('wallet-val');
+      w.textContent = (parseInt(w.textContent.replace(/,/g, ''), 10) + 1500).toLocaleString();
+    };
+    document.getElementById('tour-hide').onclick = () => document.getElementById('tour-panel').style.display = 'none';
+    document.getElementById('tour-lock').onclick = () => document.getElementById('tour-panel').style.display = 'none';
+
+    // Keyboard
+    window.addEventListener('keydown', e => {
+      state.keys[e.code] = true;
+      if (e.code === 'KeyH') setHorn(true);
+      if (e.code === 'KeyC') document.getElementById('btn-cam').click();
+      if (e.code === 'KeyE') document.getElementById('btn-driver').click();
+      if (e.code === 'KeyD') document.getElementById('btn-door').click();
+    });
+    window.addEventListener('keyup', e => {
+      state.keys[e.code] = false;
+      if (e.code === 'KeyH') setHorn(false);
+    });
+
+    // =========================================================================
+    // 9. MAIN 60 FPS SIMULATION LOOP
+    // =========================================================================
+    let lastT = performance.now(), garageYaw = 0.55;
+    function tick(now) {
+      requestAnimationFrame(tick);
+      const dt = Math.min((now - lastT) / 1000, 0.05);
+      lastT = now;
+
+      if (state.screen === 'splash' |
+
+| state.screen === 'garage') {
+        garageYaw += dt * 0.32;
+        camera.position.set(state.busX + Math.sin(garageYaw) * 11.5, 3.8, state.busZ + Math.cos(garageYaw) * 11.5);
+        camera.lookAt(state.busX, 2.0, state.busZ);
+        busGroup.position.set(state.busX, 0, state.busZ);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      const gasIn = state.gas |
+
+| state.keys['KeyW'] |
+| state.keys['ArrowUp'];
+      const brkIn = state.brake |
+
+| state.keys['KeyS'] |
+| state.keys['ArrowDown'] |
+| state.keys['Space'];
+      const keyLeft = state.keys['KeyA'] |
+
+| state.keys['ArrowLeft'] |
+| state.keys['TouchL'];
+      const keyRight = state.keys['ArrowRight'] |
+
+| state.keys['TouchR'];
+
+      if (!state.driverOut) {
+        const gearCap = state.gearbox === 'manual' ? Math.max(20, state.manualGear * 20) : 112;
+        if (gasIn) {
+          if (state.gearbox === 'manual' && state.manualGear === -1) state.speed = Math.max(-25, state.speed - 18 * dt);
+          else if (state.gearbox === 'manual' && state.manualGear === 0) state.speed *= (1 - 0.5 * dt);
+          else state.speed = Math.min(gearCap, state.speed + 22 * dt);
+        } else if (brkIn) {
+          state.speed = Math.max(-25, state.speed - 40 * dt);
+        } else {
+          state.speed *= (1 - 0.55 * dt);
+        }
+
+        const wheelSteer = -state.wheelAngleDeg / 135;
+        const btnSteer = (keyLeft ? 1 : 0) - (keyRight ? 1 : 0);
+        const targetSteer = (Math.abs(wheelSteer) > 0.02 ? wheelSteer : btnSteer) * 0.65 * state.sensitivity;
+        state.steer = THREE.MathUtils.lerp(state.steer, targetSteer, dt * 7);
+
+        if (Math.abs(state.speed) > 0.4) {
+          state.heading += state.steer * (state.speed / 44) * dt * 1.45;
+        }
+        state.busX -= Math.sin(state.heading) * (state.speed * 0.277) * dt;
+        state.busZ -= Math.cos(state.heading) * (state.speed * 0.277) * dt;
+
+        if (Math.abs(state.busX) > 6.3 && state.damageOn) {
+          state.health = Math.max(0, state.health - Math.abs(state.speed) * 0.04 * dt);
+        }
+        state.busX = THREE.MathUtils.clamp(state.busX, -6.5, 6.5);
+      } else {
+        const ws = 5.5 * dt;
+        if (gasIn) walkDriver.position.z -= ws;
+        if (brkIn) walkDriver.position.z += ws;
+        if (keyLeft) walkDriver.position.x -= ws;
+        if (keyRight) walkDriver.position.x += ws;
+      }
+
+      busGroup.position.set(state.busX, 0, state.busZ);
+      busGroup.rotation.y = state.heading;
+      steerWheel.rotation.z = state.steer * 3.8;
+      doorPivot.rotation.y = THREE.MathUtils.lerp(doorPivot.rotation.y, state.doorOpen ? -1.45 : 0, dt * 6);
+      wheels.forEach(w => { w.children[0].rotation.x -= state.speed * dt * 0.32; });
+
+      // Wipers & Blinking Signals
+      const wiperAng = state.wipersOn ? Math.sin(now * 0.006) * 0.65 : 0;
+      wiperL.rotation.z = wiperAng; wiperR.rotation.z = wiperAng;
+
+      const blinkOn = Math.floor(now / 360) % 2 === 0;
+      const lGlow = (state.sigLeft |
+
+| state.hazard) && blinkOn;
+      const rGlow = (state.sigRight |
+
+| state.hazard) && blinkOn;
+      rearLeftSignals.forEach(m => m.emissive.setHex(lGlow ? 0xf59e0b : 0x000000));
+      rearRightSignals.forEach(m => m.emissive.setHex(rGlow ? 0xf59e0b : 0x000000));
+      document.getElementById('sig-left').classList.toggle('blinking', lGlow);
+      document.getElementById('sig-right').classList.toggle('blinking', rGlow);
+      document.getElementById('sig-hazard').classList.toggle('blinking', state.hazard && blinkOn);
+
+      // RPM & Audio
+      state.gear = state.gearbox === 'manual' ? state.manualGear : Math.max(1, Math.min(6, Math.ceil(Math.abs(state.speed) / 18)));
+      state.rpm = Math.round(750 + (Math.abs(state.speed) % 20) * 82 + (gasIn ? 380 : 0));
+      if (engineOsc && audioCtx) engineOsc.frequency.setTargetAtTime(42 + state.rpm / 24, audioCtx.currentTime, 0.05);
+
+      // HUD
+      document.getElementById('hud-speed').textContent = Math.round(Math.abs(state.speed));
+      document.getElementById('rpm-fill').style.width = Math.min(100, (state.rpm / 2600) * 100) + '%';
+      const gTxt = state.speed < -0.5 |
+
+| state.gear === -1 ? 'R' : (state.gear === 0 ? 'N' : state.gear);
+      document.getElementById('hud-gear-rpm').textContent = `${state.gearbox.toUpperCase()} • G${gTxt} • ${state.rpm} RPM`;
+      document.getElementById('gps-sub').textContent = `${Math.abs(Math.round(state.busZ * 0.02))} km • Health ${Math.round(state.health)}% • ${CAM_NAMES[state.camIdx]}`;
+
+      // Sirajganj Stop & Tour Prompt
+      if (!state.sirajganjDone && state.busZ < -252 && state.busZ > -272) {
+        state.sirajganjDone = true; state.speed = 0;
+        document.getElementById('modal-rest').style.display = 'flex';
+      }
+      if (!state.tourShown && (state.mode === 'Tour' |
+
+| state.busZ < -460)) {
+        state.tourShown = true;
+        document.getElementById('tour-title').textContent = state.busZ < -400 ? "Savar Jatiya Smriti Soudho Ahead!" : "Mujibnagar Amrokanon Replica!";
+        document.getElementById('tour-panel').style.display = 'block';
+      }
+
+      // Update AI Traffic
+      aiPool.forEach((v, idx) => {
+        if (idx >= state.trafficCount) return;
+        v.mesh.position.z += v.speed * dt;
+        if (v.mesh.position.z - state.busZ > 180) v.mesh.position.z = state.busZ - 260;
+        if (v.mesh.position.z - state.busZ < -280) v.mesh.position.z = state.busZ + 160;
+      });
+
+      sunLight.position.set(state.busX + 40, 75, state.busZ + 35);
+      sunLight.target.position.set(state.busX, 0, state.busZ);
+
+      // 5 Camera Modes
+      if (state.driverOut) {
+        camera.position.lerp(new THREE.Vector3(walkDriver.position.x, 3.0, walkDriver.position.z + 5.2), dt * 6);
+        camera.lookAt(walkDriver.position.x, 1.4, walkDriver.position.z);
+      } else if (state.camIdx === 1) {
+        camera.position.set(state.busX + 0.62, 2.52, state.busZ - 4.72);
+        camera.lookAt(state.busX - Math.sin(state.heading) * 32, 2.05, state.busZ - Math.cos(state.heading) * 32);
+      } else if (state.camIdx === 2) {
+        const ox = state.busX + Math.sin(state.orbitYaw) * Math.cos(state.orbitPitch) * state.orbitDist;
+        const oy = 1.8 + Math.sin(state.orbitPitch) * state.orbitDist;
+        const oz = state.busZ + Math.cos(state.orbitYaw) * Math.cos(state.orbitPitch) * state.orbitDist;
+        camera.position.set(ox, oy, oz);
+        camera.lookAt(state.busX, 2.0, state.busZ);
+      } else if (state.camIdx === 3) {
+        camera.position.set(state.busX, 1.45, state.busZ - 6.35);
+        camera.lookAt(state.busX - Math.sin(state.heading) * 35, 1.35, state.busZ - Math.cos(state.heading) * 35);
+      } else if (state.camIdx === 4) {
+        camera.position.lerp(new THREE.Vector3(state.busX + 2.8, 2.2, state.busZ + 11.5), dt * 6);
+        camera.lookAt(state.busX, 2.0, state.busZ);
+      } else {
+        camera.position.lerp(new THREE.Vector3(state.busX + Math.sin(state.heading) * 14, 5.4, state.busZ + Math.cos(state.heading) * 14), dt * 6);
+        camera.lookAt(state.busX, 2.2, state.busZ - 4);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
